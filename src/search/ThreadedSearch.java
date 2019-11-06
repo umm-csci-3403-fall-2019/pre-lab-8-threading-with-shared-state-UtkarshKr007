@@ -29,56 +29,61 @@ public class ThreadedSearch<T> implements Searcher<T>, Runnable {
      * You can assume that the list size is divisible by `numThreads`
      */
     public boolean search(T target, List<T> list) throws InterruptedException {
-        /*
-         * First construct an instance of the `Answer` inner class. This will
-         * be how the threads you're about to create will "communicate". They
-         * will all have access to this one shared instance of `Answer`, where
-         * they can update the `answer` field inside that instance.
-         *
-         * Then construct `numThreads` instances of this class (`ThreadedSearch`)
-         * using the 5 argument constructor for the class. You'll hand each of
-         * them the same `target`, `list`, and `answer`. What will be different
-         * about each instance is their `begin` and `end` values, which you'll
-         * use to give each instance the "job" of searching a different segment
-         * of the list. If, for example, the list has length 100 and you have
-         * 4 threads, you would give the four threads the ranges [0, 25), [25, 50),
-         * [50, 75), and [75, 100) as their sections to search.
-         *
-         * You then construct `numThreads`, each of which is given a different
-         * instance of this class as its `Runnable`. Then start each of those
-         * threads, wait for them to all terminate, and then return the answer
-         * in the shared `Answer` instance.
-         */
-        return false;
+
+        // Create a instance of answer that will be shared by the threads
+        Answer sharedAnswer = new Answer();
+        // Create a thread array of size numThreads
+        Thread[] threads = new Thread[numThreads];
+        // Splitting the list in equal sizes for each thread
+        int split = list.size()/numThreads;
+
+        // For each thread
+        for(int i=0;i<numThreads;i++) {
+                // We create an instance of this class, pass it the same target, list and the shared answer instance but
+                // change the begin and end value to split the list into equal sizes
+                ThreadedSearch<T> threadedSearch = new ThreadedSearch<>(target, list, i * split, (i + 1) * split, sharedAnswer);
+                // Pass the class to a thread stored in the thread array
+                threads[i] = new Thread(threadedSearch);
+                // Start that thread
+                threads[i].start();
+        }
+
+        for(int i=0;i<numThreads;i++){
+            // join waits for each thread to finish
+            threads[i].join();
+        }
+
+        // return the current value of answer
+        return sharedAnswer.getAnswer();
     }
 
     public void run() {
-        // Delete this `throw` when you actually implement this method.
-        throw new UnsupportedOperationException();
+        for(int index=begin;index<end;index++) {
+            // If answer has been found by some thread we exit the run() method
+            if(answer.getAnswer()){
+                return;
+            }
+            // If the value at current index in list is equal to target, this thread sets answer to true
+            if(list.get(index).equals(target)){
+                answer.setAnswerTrue();
+                return;
+            }
+        }
     }
 
     private class Answer {
+        // By default, answer has not been found so it is initialized as false.
         private boolean answer = false;
 
-        // In a more general setting you would typically want to synchronize
-        // this method as well. Because the answer is just a boolean that only
-        // goes from initial initial value (`false`) to `true` (and not back
-        // again), we can safely not synchronize this, and doing so substantially
-        // speeds up the lookup if we add calls to `getAnswer()` to every step in
-        // our threaded loops.
-        public boolean getAnswer() {
+        // This retrieves the current value of answer
+        boolean getAnswer() {
             return answer;
         }
 
-        // This has to be synchronized to ensure that no two threads modify
-        // this at the same time, possibly causing race conditions.
-        // Actually, that's not really true here, because we're just overwriting
-        // the old value of answer with the new one, and no one will actually
-        // call with any value other than `true`. In general, though, you do
-        // need to synchronize update methods like this to avoid race conditions.
-        public synchronized void setAnswer(boolean newAnswer) {
-            answer = newAnswer;
+        // Since no one will actually call this method with any value other than `true`, I changed it's function
+        // to just set answer to true.
+        synchronized void setAnswerTrue() {
+            answer = true;
         }
     }
-
 }
